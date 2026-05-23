@@ -1,0 +1,38 @@
+﻿name: Deploy backend to Render
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger deploy on Render
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID_BACKEND }}/deploys" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"clearCache": false}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          echo "Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" -ne 201 ]; then
+            echo "Deploy failed"
+            exit 1
+          fi
+          echo "Deploy triggered!"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "### Deploy Triggered!" >> $GITHUB_STEP_SUMMARY
+          echo "- Service: backend-api" >> $GITHUB_STEP_SUMMARY
+          echo "- Time: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
